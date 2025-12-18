@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from src.data_loader import load_data
 from src.preprocessing import explode_peneliti
 from src.keyword_extraction import extract_keywords
-from src.trend_analysis import get_trend 
+from src.trend_analysis import get_trend, extract_trend_peak, save_trend_peak
 
 # ==============================
 # KONFIGURASI HALAMAN
@@ -30,6 +30,15 @@ def load_all_data():
 
 df_raw, df_peneliti = load_all_data()
 
+
+# ==============================
+# CACHE GOOGLE TRENDS
+# ==============================
+@st.cache_data(show_spinner=False)
+def load_trend_cached(keyword):
+    return get_trend(keyword)
+
+
 # ==============================
 # SIDEBAR FILTER
 # ==============================
@@ -51,39 +60,41 @@ def safe_multiselect(label, options):
 
 provinsi = safe_multiselect(
     "Asal LPB",
-    sorted(df_peneliti["Provinsi"].dropna().unique())
+    sorted(df_peneliti["provinsi"].dropna().unique())
 )
 
 gender = safe_multiselect(
     "Jenis Kelamin",
-    sorted(df_peneliti["Jenis Kelamin"].dropna().unique())
+    sorted(df_peneliti["jenis_kelamin"].dropna().unique())
 )
 
 bidang = safe_multiselect(
     "Bidang Penelitian",
-    sorted(df_peneliti["Bidang"].dropna().unique())
+    sorted(df_peneliti["bidang"].dropna().unique())
 )
 
 tahun = safe_multiselect(
     "Tahun",
-    sorted(df_peneliti["Tahun"].dropna().unique())
+    sorted(df_peneliti["tahun"].dropna().unique())
 )
 
 kelas = safe_multiselect(
     "Kelas",
-    sorted(df_peneliti["Kelas"].dropna().unique())
+    sorted(df_peneliti["kelas"].dropna().unique())
 )
+
 
 # ==============================
 # FILTER DATAFRAME
 # ==============================
 df_filtered = df_peneliti[
-    (df_peneliti["Provinsi"].isin(provinsi)) &
-    (df_peneliti["Jenis Kelamin"].isin(gender)) &
-    (df_peneliti["Bidang"].isin(bidang)) &
-    (df_peneliti["Tahun"].isin(tahun)) &
-    (df_peneliti["Kelas"].isin(kelas))
+    (df_peneliti["provinsi"].isin(provinsi)) &
+    (df_peneliti["jenis_kelamin"].isin(gender)) &
+    (df_peneliti["bidang"].isin(bidang)) &
+    (df_peneliti["tahun"].isin(tahun)) &
+    (df_peneliti["kelas"].isin(kelas))
 ]
+
 
 # ==============================
 # KPI CARD (INTERNAL)
@@ -95,15 +106,15 @@ def show_internal_kpi(df):
         st.metric("Total Peneliti", df.shape[0])
 
     with col2:
-        top_bidang = df["Bidang"].value_counts().idxmax()
+        top_bidang = df["bidang"].value_counts().idxmax()
         st.metric("Bidang Dominan", top_bidang)
 
     with col3:
-        gender_ratio = df["Jenis Kelamin"].value_counts(normalize=True) * 100
+        gender_ratio = df["jenis_kelamin"].value_counts(normalize=True) * 100
         st.metric("Gender Dominan", gender_ratio.idxmax())
 
     with col4:
-        top_year = df["Tahun"].value_counts().idxmax()
+        top_year = df["tahun"].value_counts().idxmax()
         st.metric("Tahun Teraktif", int(top_year))
 
 
@@ -119,7 +130,7 @@ def show_internal_visual(df):
     with col1:
         st.markdown("**Distribusi Bidang Penelitian**")
         fig, ax = plt.subplots()
-        df["Bidang"].value_counts().plot(kind="bar", ax=ax)
+        df["bidang"].value_counts().plot(kind="bar", ax=ax)
         ax.set_xlabel("Bidang")
         ax.set_ylabel("Jumlah Peneliti")
         st.pyplot(fig)
@@ -127,7 +138,7 @@ def show_internal_visual(df):
     # Gender vs Bidang
     with col2:
         st.markdown("**Gender vs Bidang**")
-        pivot = pd.crosstab(df["Bidang"], df["Jenis Kelamin"])
+        pivot = pd.crosstab(df["bidang"], df["jenis_kelamin"])
         fig, ax = plt.subplots()
         pivot.plot(kind="bar", stacked=True, ax=ax)
         ax.set_xlabel("Bidang")
@@ -137,7 +148,7 @@ def show_internal_visual(df):
     # Tren Tahunan
     st.markdown("**Tren Jumlah Peneliti per Tahun**")
     fig, ax = plt.subplots()
-    df.groupby("Tahun").size().plot(marker="o", ax=ax)
+    df.groupby("tahun").size().plot(marker="o", ax=ax)
     ax.set_ylabel("Jumlah Peneliti")
     st.pyplot(fig)
 
@@ -146,32 +157,100 @@ def show_internal_visual(df):
 # VISUALISASI EKSTERNAL
 # ==============================
 def show_external_visual(df):
-    st.subheader("🌐 Analisis Eksternal (Google Trends)")
+    st.subheader("Analisis Eksternal (Google Trends)")
 
-    # Keyword Extraction
+    if df.empty:
+        st.warning("Data kosong setelah filter.")
+        return
+
+    # ==========================
+    # KEYWORD EXTRACTION
+    # ==========================
     keywords = extract_keywords(
-        df["Judul"].dropna().unique(),
+        df["judul"].dropna().unique(),
         top_n=10
     )
+
+    if len(keywords) == 0:
+        st.info("Tidak ada keyword yang dapat diekstrak.")
+        return
 
     keyword_df = pd.DataFrame(keywords, columns=["Keyword", "Score"])
 
     col1, col2 = st.columns(2)
 
+    # ==========================
+    # TOP KEYWORD BAR CHART
+    # ==========================
     with col1:
         st.markdown("**Top Keyword Judul Penelitian**")
         fig, ax = plt.subplots()
         ax.barh(keyword_df["Keyword"], keyword_df["Score"])
+        ax.set_xlabel("TF-IDF Score")
         ax.invert_yaxis()
         st.pyplot(fig)
 
+    # ==========================
+    # GOOGLE TRENDS
+    # ==========================
     with col2:
-        st.markdown("**Trend Alignment (Contoh Keyword Utama)**")
+        st.markdown("**Trend Alignment (Google Trends)**")
+
+        keyword = keyword_df.iloc[0]["Keyword"]
+
         try:
-            trend = get_trend(keyword_df.iloc[0]["Keyword"])
+            trend = load_trend_cached(keyword)
+
+            if trend.empty:
+                st.info("Google Trends tidak mengembalikan data.")
+                return
+
+            # Line chart
             st.line_chart(trend.iloc[:, 0])
-        except:
-            st.info("Data Google Trends belum tersedia / koneksi dibatasi")
+
+            # ==========================
+            # SIMPAN DATA TREND
+            # ==========================
+            os.makedirs("data/trends", exist_ok=True)
+
+            trend_file = f"data/trends/trend_{keyword.replace(' ', '_')}.csv"
+            trend.to_csv(trend_file)
+
+            # ==========================
+            # PEAK EXTRACTION
+            # ==========================
+            peak_value = int(trend.iloc[:, 0].max())
+            peak_date = trend.iloc[:, 0].idxmax()
+
+            peak_df = pd.DataFrame([{
+                "keyword": keyword,
+                "peak_value": peak_value,
+                "peak_date": peak_date
+            }])
+
+            peak_file = "data/trends/trend_peak_summary.csv"
+
+            if os.path.exists(peak_file):
+                old = pd.read_csv(peak_file)
+                peak_df = (
+                    pd.concat([old, peak_df])
+                    .drop_duplicates(subset=["keyword"], keep="last")
+                )
+
+            peak_df.to_csv(peak_file, index=False)
+
+            # ==========================
+            # INFO BOX
+            # ==========================
+            st.success(
+                f" Peak trend **{keyword}** terjadi pada "
+                f"**{peak_date.date()}** dengan nilai **{peak_value}**"
+            )
+
+        except Exception as e:
+            st.error("Gagal mengambil data Google Trends")
+            st.caption(str(e))
+
 
 # ==============================
 # MAIN LOGIC
