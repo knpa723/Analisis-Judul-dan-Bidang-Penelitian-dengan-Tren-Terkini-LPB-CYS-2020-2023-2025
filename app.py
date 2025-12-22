@@ -1,9 +1,13 @@
 import streamlit as st
 import pandas as pd
+import os
 
 from src.data_loader import load_data
 from src.preprocessing import explode_peneliti
 from src.internal_visual import show_internal_kpi, show_internal_visual
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_PATH = os.path.join(BASE_DIR, "data", "Data Clean.xlsx")
 
 
 # ==============================
@@ -86,7 +90,7 @@ st.markdown("<br><br>", unsafe_allow_html=True)
 # ==============================
 @st.cache_data
 def load_all_data():
-    df_raw = load_data("data/Data Clean.xlsx")
+    df_raw = load_data(DATA_PATH)
     df_peneliti = explode_peneliti(df_raw)
     return df_peneliti
 
