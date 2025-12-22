@@ -1,6 +1,14 @@
 import pandas as pd
 
 def explode_peneliti(df):
+    # 🔥 NORMALISASI NAMA KOLOM
+    df = df.copy()
+    df.columns = (
+        df.columns
+        .str.lower()
+        .str.strip()
+    )
+
     records = []
 
     for _, row in df.iterrows():
@@ -19,4 +27,3 @@ def explode_peneliti(df):
                 })
 
     return pd.DataFrame(records)
-

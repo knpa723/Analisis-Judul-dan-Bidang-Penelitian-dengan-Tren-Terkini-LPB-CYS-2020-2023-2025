@@ -4,7 +4,7 @@ STOPWORDS_ID = [
     "yang", "dan", "di", "ke", "dari", "untuk", "dengan",
     "pada", "oleh", "dalam", "sebagai", "terhadap",
     "penelitian", "studi", "analisis", "pengaruh",
-    "berbasis", "melalui", "menggunakan"
+    "berbasis", "melalui", "menggunakan", "of", "the"
 ]
 
 def extract_keywords(texts, top_n=10):

@@ -5,3 +5,5 @@ matplotlib==3.8.4
 streamlit==1.37.0
 pytrends==4.9.2
 spacy==3.7.5
+openpyxl
+plotly
