@@ -114,8 +114,6 @@ st.sidebar.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-st.sidebar.header("Filter Data Internal")
-
 df_peneliti["kelas"] = (
     df_peneliti["kelas"]
     .dropna()
