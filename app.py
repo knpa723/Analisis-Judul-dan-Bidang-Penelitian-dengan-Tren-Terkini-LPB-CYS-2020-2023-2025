@@ -1,14 +1,17 @@
 import streamlit as st
+
+st.set_page_config(
+    page_title="Dashboard Analisis LPB (Internal)",
+    layout="wide"
+)
+
+
 import pandas as pd
 import os
 
 from src.data_loader import load_data
 from src.preprocessing import explode_peneliti
 from src.internal_visual import show_internal_kpi, show_internal_visual
-
-st.write("Current dir:", os.getcwd())
-st.write("Files:", os.listdir())
-st.write("Data folder:", os.listdir("data"))
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(BASE_DIR, "data", "Data Clean.xlsx")
@@ -17,10 +20,6 @@ DATA_PATH = os.path.join(BASE_DIR, "data", "Data Clean.xlsx")
 # ==============================
 # KONFIGURASI HALAMAN
 # ==============================
-st.set_page_config(
-    page_title="Dashboard Analisis LPB (Internal)",
-    layout="wide"
-)
 
 st.markdown(
     """
